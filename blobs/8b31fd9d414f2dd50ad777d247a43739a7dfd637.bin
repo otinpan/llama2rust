@@ -1,0 +1,1 @@
+Refactor the tokenizer initialization in main.rs to use the tokenizer path from options and handle the result properly (unwrap).
