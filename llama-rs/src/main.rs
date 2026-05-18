@@ -1,4 +1,5 @@
 use llama_rs::transformer::Transformer;
+use llama_rs::tokenizer::Tokenizer;
 
 // @trace-pilot 3624d0606abc5bcc94a91c7153eced4e02d4465c
 #[derive(Debug)]
@@ -103,6 +104,12 @@ fn main() {
 
     let transformer = Transformer::new(&options.checkpoint).expect("failed to open checkpoint");
     options.steps = transformer.clamp_steps(options.steps);
+
+
+    let tokanizer=Tokenizer::new(
+        &options.tokenizer_path,
+        transformer.config().vocab_size
+    ).unwrap();
 
     println!("config: {:?}", transformer.config());
     println!("options: {:?}", options);
