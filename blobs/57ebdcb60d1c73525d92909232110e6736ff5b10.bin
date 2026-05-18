@@ -1,0 +1,27 @@
+# Record 1: file:///home/hase/llama2rust/llama-rs/src/lib.rs
+```diff
+===================================================================
+--- lib.rs (before)	snapshot
++++ lib.rs (after)	external
+@@ -3,5 +3,4 @@
+ pub mod state;
+ pub mod weights;
+ pub mod checkpoint;
+ pub mod tokenizer;
+-pub mod tokenizer;
+
+```
+
+`tokenizer.rs` に `Tokenizer` と `from_file` を入れます。今の `model.bin` 読み込みに合わせて、`tokenizer.bin` を `vocab_size` 指定で読む最小実装にします。
+
+実装は入りました。ビルドだけ確認して、型や公開モジュール周りに崩れがないか見ます。
+
+`lib.rs` に重複定義がありました。そこだけ整えて再度チェックします。
+
+重複行だけ削ります。 তারপর `cargo check` を通します。
+
+`tokenizer.rs` に `Tokenizer` と `Tokenizer::from_file(...)` を追加しました。[tokenizer.rs](/home/hase/llama2rust/llama-rs/src/tokenizer.rs:1)  
+やっていることは C の `build_tokenizer` と同じで、`tokenizer.bin` から `max_token_length`、各 token の `score`、文字列本体を順に読んで `vocab` と `vocab_scores` に積みます。
+
+公開モジュールにも追加してあり、`cargo check` は通っています。[lib.rs](/home/hase/llama2rust/llama-rs/src/lib.rs:1)  
+使うときは例えば `Tokenizer::from_file(&options.tokenizer_path, transformer.config().vocab_size)?` という形です。
