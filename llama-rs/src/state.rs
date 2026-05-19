@@ -17,9 +17,8 @@ pub struct RunState{
     pub hb2: Vec<f32>,
 
     // attention
+    // @trace-pilot 04abe07bcf4f298e4692bcce03d84966fd63802c
     pub q: Vec<f32>,
-    pub k: Vec<f32>,
-    pub v: Vec<f32>,
 
     // attention score
     pub att: Vec<f32>,
@@ -44,8 +43,6 @@ impl RunState {
             hb: vec![0.0; config.hidden_dim],
             hb2: vec![0.0; config.hidden_dim],
             q: vec![0.0; config.dim],
-            k: vec![0.0; kv_dim],
-            v: vec![0.0; kv_dim],
             att: vec![0.0; config.n_heads * config.seq_len],
             logits: vec![0.0; config.vocab_size],
             key_cache: vec![0.0; config.n_layers * config.seq_len * kv_dim],

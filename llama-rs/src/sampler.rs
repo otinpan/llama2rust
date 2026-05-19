@@ -36,5 +36,9 @@ impl Sampler{
             rng_state: rng_seed,
         }
     }
+
+    pub fn sample(&self,logits: Vec<f32>) -> u32{
+        todo!()
+    }
 }
 
