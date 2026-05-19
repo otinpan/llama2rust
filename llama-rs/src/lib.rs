@@ -5,6 +5,7 @@ pub mod state;
 pub mod weights;
 pub mod checkpoint;
 pub mod logger;
+pub mod timer;
 pub mod tokenizer;
 pub mod sampler;
 pub mod generation;

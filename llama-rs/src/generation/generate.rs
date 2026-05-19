@@ -15,8 +15,7 @@ pub fn generate(
 
     let tokens=tokenizer.encode(Some(prompt),true,false);
 
-    
-
+    // encoder
     todo!()
 }
 

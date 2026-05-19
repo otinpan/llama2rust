@@ -1,10 +1,12 @@
 // @trace-pilot 5f50038dae75a7ab6c556f586a9adb5d86c3b026
 use std::fmt;
-use std::io::{self, Write};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static LOG_LEVEL: OnceLock<LogLevel> = OnceLock::new();
+static LOG_FILE: OnceLock<File> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LogLevel {
@@ -45,10 +47,12 @@ pub fn init() {
         .and_then(LogLevel::from_str)
         .unwrap_or(LogLevel::Info);
     let _ = LOG_LEVEL.set(level);
+    let _ = LOG_FILE.set(open_log_file());
 }
 
 pub fn init_with_level(level: LogLevel) {
     let _ = LOG_LEVEL.set(level);
+    let _ = LOG_FILE.set(open_log_file());
 }
 
 pub fn enabled(level: LogLevel) -> bool {
@@ -61,9 +65,9 @@ pub fn log(level: LogLevel, module_path: &str, file: &str, line: u32, args: fmt:
     }
 
     let timestamp = timestamp_millis();
-    let mut stderr = io::stderr().lock();
+    let mut log_file = LOG_FILE.get_or_init(open_log_file);
     let _ = writeln!(
-        stderr,
+        &mut log_file,
         "[{}] {:>5} {} {}:{} {}",
         timestamp,
         level.as_str(),
@@ -76,6 +80,14 @@ pub fn log(level: LogLevel, module_path: &str, file: &str, line: u32, args: fmt:
 
 fn current_level() -> LogLevel {
     *LOG_LEVEL.get_or_init(|| LogLevel::Info)
+}
+
+fn open_log_file() -> File {
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("log.txt")
+        .expect("failed to open log.txt")
 }
 
 fn timestamp_millis() -> u128 {
