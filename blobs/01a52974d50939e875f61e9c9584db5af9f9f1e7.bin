@@ -1,0 +1,18 @@
+===================================================================
+--- transformer.rs (before)	snapshot
++++ transformer.rs (after)	external
+@@ -70,12 +70,10 @@
+ 
+             let loff = l * seq_len * kv_dim;
+             let cache_offset = loff + pos * kv_dim;
+             let cache_end = cache_offset + kv_dim;
+-            let key_cache = state.key_cache[cache_offset..cache_end].to_vec();
+-            let value_cache = state.value_cache[cache_offset..cache_end].to_vec();
+-            state.k.copy_from_slice(&key_cache);
+-            state.v.copy_from_slice(&value_cache);
++            let _k_cache = &mut state.key_cache[cache_offset..cache_end];
++            let _v_cache = &mut state.value_cache[cache_offset..cache_end];
+         }
+ 
+         let _ = pos;
+         todo!()
