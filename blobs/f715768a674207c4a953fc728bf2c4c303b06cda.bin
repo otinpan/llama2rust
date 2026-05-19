@@ -1,0 +1,219 @@
+# Record 1: file:///home/hase/llama2rust/llama-rs/src/logger.rs
+```diff
+===================================================================
+--- logger.rs (before)	snapshot
++++ logger.rs (after)	idle
+@@ -0,0 +1,150 @@
++use std::fmt;
++use std::io::{self, Write};
++use std::sync::OnceLock;
++use std::time::{SystemTime, UNIX_EPOCH};
++
++static LOG_LEVEL: OnceLock<LogLevel> = OnceLock::new();
++
++#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
++pub enum LogLevel {
++    Error,
++    Warn,
++    Info,
++    Debug,
++    Trace,
++}
++
++impl LogLevel {
++    fn as_str(self) -> &'static str {
++        match self {
++            Self::Error => "ERROR",
++            Self::Warn => "WARN",
++            Self::Info => "INFO",
++            Self::Debug => "DEBUG",
++            Self::Trace => "TRACE",
++        }
++    }
++
++    fn from_str(level: &str) -> Option<Self> {
++        match level.to_ascii_lowercase().as_str() {
++            "error" => Some(Self::Error),
++            "warn" | "warning" => Some(Self::Warn),
++            "info" => Some(Self::Info),
++            "debug" => Some(Self::Debug),
++            "trace" => Some(Self::Trace),
++            _ => None,
++        }
++    }
++}
++
++pub fn init() {
++    let level = std::env::var("LLAMA_RS_LOG")
++        .ok()
++        .as_deref()
++        .and_then(LogLevel::from_str)
++        .unwrap_or(LogLevel::Info);
++    let _ = LOG_LEVEL.set(level);
++}
++
++pub fn init_with_level(level: LogLevel) {
++    let _ = LOG_LEVEL.set(level);
++}
++
++pub fn enabled(level: LogLevel) -> bool {
++    level <= current_level()
++}
++
++pub fn log(level: LogLevel, module_path: &str, file: &str, line: u32, args: fmt::Arguments<'_>) {
++    if !enabled(level) {
++        return;
++    }
++
++    let timestamp = timestamp_millis();
++    let mut stderr = io::stderr().lock();
++    let _ = writeln!(
++        stderr,
++        "[{}] {:>5} {} {}:{} {}",
++        timestamp,
++        level.as_str(),
++        module_path,
++        file,
++        line,
++        args
++    );
++}
++
++fn current_level() -> LogLevel {
++    *LOG_LEVEL.get_or_init(|| LogLevel::Info)
++}
++
++fn timestamp_millis() -> u128 {
++    SystemTime::now()
++        .duration_since(UNIX_EPOCH)
++        .map(|duration| duration.as_millis())
++        .unwrap_or(0)
++}
++
++#[macro_export]
++macro_rules! log_error {
++    ($($arg:tt)*) => {
++        $crate::logger::log(
++            $crate::logger::LogLevel::Error,
++            module_path!(),
++            file!(),
++            line!(),
++            format_args!($($arg)*),
++        )
++    };
++}
++
++#[macro_export]
++macro_rules! log_warn {
++    ($($arg:tt)*) => {
++        $crate::logger::log(
++            $crate::logger::LogLevel::Warn,
++            module_path!(),
++            file!(),
++            line!(),
++            format_args!($($arg)*),
++        )
++    };
++}
++
++#[macro_export]
++macro_rules! log_info {
++    ($($arg:tt)*) => {
++        $crate::logger::log(
++            $crate::logger::LogLevel::Info,
++            module_path!(),
++            file!(),
++            line!(),
++            format_args!($($arg)*),
++        )
++    };
++}
++
++#[macro_export]
++macro_rules! log_debug {
++    ($($arg:tt)*) => {
++        $crate::logger::log(
++            $crate::logger::LogLevel::Debug,
++            module_path!(),
++            file!(),
++            line!(),
++            format_args!($($arg)*),
++        )
++    };
++}
++
++#[macro_export]
++macro_rules! log_trace {
++    ($($arg:tt)*) => {
++        $crate::logger::log(
++            $crate::logger::LogLevel::Trace,
++            module_path!(),
++            file!(),
++            line!(),
++            format_args!($($arg)*),
++        )
++    };
++}
+
+```
+
+# Record 2: file:///home/hase/llama2rust/llama-rs/src/lib.rs
+```diff
+===================================================================
+--- lib.rs (before)	snapshot
++++ lib.rs (after)	external
+@@ -0,0 +1,9 @@
++pub mod transformer;
++pub mod config;
++pub mod state;
++pub mod weights;
++pub mod checkpoint;
++pub mod logger;
++pub mod tokenizer;
++pub mod sampler;
++pub mod generation;
+
+```
+
+# Record 3: file:///home/hase/llama2rust/llama-rs/src/main.rs
+```diff
+===================================================================
+--- main.rs (before)	snapshot
++++ main.rs (after)	idle
+@@ -1,8 +1,9 @@
+ use llama_rs::transformer::Transformer;
+ use llama_rs::tokenizer::Tokenizer;
+ use llama_rs::generation::generate::generate;
+ use llama_rs::generation::chat::chat;
++use llama_rs::logger;
+ 
+ // @trace-pilot 3624d0606abc5bcc94a91c7153eced4e02d4465c
+ #[derive(Debug)]
+ struct CliOptions {
+@@ -98,8 +99,10 @@
+ }
+ 
+ // @trace-pilot 3624d0606abc5bcc94a91c7153eced4e02d4465c
+ fn main() {
++    logger::init();
++
+     let mut options = parse_args().unwrap_or_else(|message| {
+         eprintln!("{message}");
+         std::process::exit(1);
+     });
+
+```
+
+`logger.rs` を追加して、この repo でそのまま使える最小構成にします。依存関係を確認してから、初期化関数と使い回せるマクロを入れます。
+
+外部依存を増やさずに使える形にします。`stderr` 出力の軽い logger を `logger.rs` に置いて、どのモジュールからでもマクロで呼べるようにします。
+
+`logger.rs` 自体は追加できたので、最低限コンパイルの邪魔になる既存の `generate.rs` の再代入も直します。これでライブラリ側の確認がしやすくなります。
+
+`generate.rs` はすでに再代入自体は直っていました。`logger.rs` を含めてライブラリ全体が通るかだけ確認します。
+
+`logger.rs` を追加しました。場所は [logger.rs](/home/hase/llama2rust/llama-rs/src/logger.rs:1) です。外部依存は増やさず、`OnceLock` でログレベルを初期化し、`LLAMA_RS_LOG=error|warn|info|debug|trace` で制御できる形にしています。
+
+公開は [lib.rs](/home/hase/llama2rust/llama-rs/src/lib.rs:1) に追加し、起動時初期化は [main.rs](/home/hase/llama2rust/llama-rs/src/main.rs:1) で `logger::init();` を呼ぶようにしました。各モジュールからは例えば `crate::log_info!("encode start");` や `crate::log_debug!("token={}", id);` のように使えます。
+
+`cargo check --lib` は通っています。warning は既存の未使用変数と [`Tokenizer::sorted_vocab`](/home/hase/llama2rust/llama-rs/src/tokenizer.rs:19) の公開範囲不整合が残っています。必要なら次に `tokenizer.rs` に実際にログを差し込みます。
