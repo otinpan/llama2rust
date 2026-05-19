@@ -8,9 +8,13 @@ pub fn generate(
     transformer: &mut Transformer,
     tokenizer: &mut Tokenizer,
     sampler: &mut Sampler,
-    prompt_in: Option<&str>,
+    prompt: Option<&str>,
     steps: usize,
 ) -> std::io::Result<()>{
+    let prompt=prompt.unwrap_or("");
+
+    let tokens=tokenizer.encode(Some(prompt),true,false);
+
     todo!()
 }
 

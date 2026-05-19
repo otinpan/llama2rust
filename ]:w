@@ -1,0 +1,127 @@
+// @trace-pilot a753c602b9fc1a8a17f6019e74599aef2b3cc035
+// Tokenizer
+
+// @trace-pilot 6884d3a2b2265d5e4d213741554073e7f4dad7e5
+use std::fs::File;
+use std::io::{self, BufReader, Read};
+use std::path::Path;
+
+#[derive(Debug,Clone)]
+struct TokenIndex{
+    vocab: String,
+    id: usize,
+}
+
+#[derive(Debug)]
+pub struct Tokenizer {
+    pub vocab: Vec<String>,
+    pub vocab_scores: Vec<f32>,
+    pub sorted_vocab: Option<Vec<TokenIndex>>,
+    pub max_token_length: usize,
+    pub vocab_size: usize, // token idがいくつ存在するか
+}
+
+impl Tokenizer {
+    // @trace-pilot 6a5e681f77038ebba2c8b5ec7e66767ffb3503d3
+    // void build_tokenizer
+    pub fn new(path: impl AsRef<Path>, vocab_size: usize) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
+
+        let max_token_length = read_u32(&mut reader)? as usize;
+        let mut vocab = Vec::with_capacity(vocab_size);
+        let mut vocab_scores = Vec::with_capacity(vocab_size);
+
+        for _ in 0..vocab_size {
+            let score = read_f32(&mut reader)?;
+            let piece_len = read_u32(&mut reader)? as usize;
+            let mut bytes = vec![0_u8; piece_len];
+            reader.read_exact(&mut bytes)?;
+
+            let piece = String::from_utf8(bytes).map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("invalid tokenizer entry: {err}"),
+                )
+            })?;
+
+            vocab_scores.push(score);
+            vocab.push(piece);
+        }
+
+        let sorted_vocab: Option<Vec<TokenIndex>>=None;
+
+        Ok(Self {
+            vocab,
+            vocab_scores,
+            sorted_vocab,
+            max_token_length,
+            vocab_size,
+        })
+    }
+
+    // promptをtoken化する
+    // // @trace-pilot 2fc39f491ccdb51bdc1f168582930830ff1cec61
+    // void encode(
+    pub fn encode(&mut self,prompt: Option<&str>,bos: bool, eos: bool) -> std::io::Result<Vec<u32>>{
+        let prompt=prompt.ok_or_else(||{
+            io::Error::new(io::ErrorKind::InvalidInput, "prompt is None")
+        })?;
+        
+        if self.sorted_vocab.is_none(){
+            self.initialize_sort_vocab();
+        }
+
+        let sorted_vocab=self.sorted_vocab.as_ref().unwrap();
+
+        let mut tokenized_prompt: Vec<u32>=Vec::new();
+        // start at 0 tokens
+        let mut n_tokens=0;
+
+        if bos{
+            self.push_tokenized_prompt(
+                tokenized_prompt,
+                n_tokens,
+                0
+            );
+        }
+
+
+        Ok(tokenized_prompt)
+    }
+
+    // @trace-pilot 0fe18937a63947ac3b1eb25bbb83d2b0a69fe204
+    // lazily malloc and sort the vocabulary
+    pub fn initialize_sort_vocab(&mut self){
+        let mut sorted_vocab: Vec<TokenIndex>=self.vocab
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(id,vocab)| TokenIndex {vocab,id})
+            .collect();
+        sorted_vocab.sort_by(|a,b| a.vocab.cmp(&b.vocab));
+        self.sorted_vocab=Some(sorted_vocab);
+    }
+
+    pub fn push_tokenized_prompt(
+        tokenized_prompt: &mut Vec<u32>,
+        n_tokens: &mut u32,
+        id: u32)
+    {
+        tokenized_prompt.push(id);
+        *n_tokens+=1;
+    }
+    
+}
+
+fn read_u32<R: Read>(reader: &mut R) -> io::Result<u32> {
+    let mut bytes = [0_u8; 4];
+    reader.read_exact(&mut bytes)?;
+    Ok(u32::from_le_bytes(bytes))
+}
+
+fn read_f32<R: Read>(reader: &mut R) -> io::Result<f32> {
+    let mut bytes = [0_u8; 4];
+    reader.read_exact(&mut bytes)?;
+    Ok(f32::from_le_bytes(bytes))
+}

@@ -113,11 +113,6 @@ fn main() {
         transformer.config().vocab_size
     ).unwrap();
 
-    match options.mode.as_str(){
-        "generate" => generate(),
-        "chat" => chat(),
-        _ => panic!("invalide mode")
-    }
     println!("config: {:?}", transformer.config());
     println!("options: {:?}", options);
 }
