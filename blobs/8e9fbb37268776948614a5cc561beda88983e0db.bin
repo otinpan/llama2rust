@@ -1,0 +1,3 @@
+// byte_fallback encoding: just encode each byte as a token
+            // +3 is here because the first 3 vocab elements are <unk>, <s>, </s>
+            // so the individual bytes only start at index 3
