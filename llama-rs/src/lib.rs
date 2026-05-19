@@ -1,8 +1,10 @@
+// @trace-pilot 5f50038dae75a7ab6c556f586a9adb5d86c3b026
 pub mod transformer;
 pub mod config;
 pub mod state;
 pub mod weights;
 pub mod checkpoint;
+pub mod logger;
 pub mod tokenizer;
 pub mod sampler;
 pub mod generation;

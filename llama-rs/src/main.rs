@@ -2,6 +2,8 @@ use llama_rs::transformer::Transformer;
 use llama_rs::tokenizer::Tokenizer;
 use llama_rs::generation::generate::generate;
 use llama_rs::generation::chat::chat;
+// @trace-pilot 5f50038dae75a7ab6c556f586a9adb5d86c3b026
+use llama_rs::logger;
 
 // @trace-pilot 3624d0606abc5bcc94a91c7153eced4e02d4465c
 #[derive(Debug)]
@@ -99,6 +101,9 @@ fn parse_args() -> Result<CliOptions, String> {
 
 // @trace-pilot 3624d0606abc5bcc94a91c7153eced4e02d4465c
 fn main() {
+// @trace-pilot 5f50038dae75a7ab6c556f586a9adb5d86c3b026
+    logger::init();
+
     let mut options = parse_args().unwrap_or_else(|message| {
         eprintln!("{message}");
         std::process::exit(1);

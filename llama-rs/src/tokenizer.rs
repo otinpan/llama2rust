@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
 
+
 #[derive(Debug,Clone)]
 struct TokenIndex{
     vocab: String,
@@ -172,6 +173,7 @@ impl Tokenizer {
                 if let Some(id) = self.str_lookup(&merged_vocab) {
                     let score = self.vocab_scores[id as usize];
                     if score > best_score {
+                        crate::log_info!("merged vocab: {}",merged_vocab);
                         best_score = score;
                         best_id = Some(id);
                         best_idx = Some(i);
