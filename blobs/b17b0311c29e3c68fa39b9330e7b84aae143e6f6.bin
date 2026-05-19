@@ -1,0 +1,79 @@
+# Record 1: file:///home/hase/llama2rust/llama-rs/src/state.rs
+```diff
+===================================================================
+--- state.rs (before)	snapshot
++++ state.rs (after)	idle
+@@ -17,10 +17,8 @@
+     pub hb2: Vec<f32>,
+ 
+     // attention
+     pub q: Vec<f32>,
+-    pub k: Vec<f32>,
+-    pub v: Vec<f32>,
+ 
+     // attention score
+     pub att: Vec<f32>,
+ 
+@@ -43,10 +41,8 @@
+             xb2: vec![0.0; config.dim],
+             hb: vec![0.0; config.hidden_dim],
+             hb2: vec![0.0; config.hidden_dim],
+             q: vec![0.0; config.dim],
+-            k: vec![0.0; kv_dim],
+-            v: vec![0.0; kv_dim],
+             att: vec![0.0; config.n_heads * config.seq_len],
+             logits: vec![0.0; config.vocab_size],
+             key_cache: vec![0.0; config.n_layers * config.seq_len * kv_dim],
+             value_cache: vec![0.0; config.n_layers * config.seq_len * kv_dim],
+
+```
+
+# Record 2: file:///home/hase/llama2rust/llama-rs/src/transformer.rs
+```diff
+===================================================================
+--- transformer.rs (before)	snapshot
++++ transformer.rs (after)	external
+@@ -70,12 +70,10 @@
+ 
+             let loff = l * seq_len * kv_dim;
+             let cache_offset = loff + pos * kv_dim;
+             let cache_end = cache_offset + kv_dim;
+-            let key_cache = state.key_cache[cache_offset..cache_end].to_vec();
+-            let value_cache = state.value_cache[cache_offset..cache_end].to_vec();
+-            state.k.copy_from_slice(&key_cache);
+-            state.v.copy_from_slice(&value_cache);
++            let _k_cache = &mut state.key_cache[cache_offset..cache_end];
++            let _v_cache = &mut state.value_cache[cache_offset..cache_end];
+         }
+ 
+         let _ = pos;
+         todo!()
+
+```
+
+`state.k` / `state.v` をなくす方向で、`RunState` と `forward` を進めます。まず `matmul` の有無と現状 API を確認して、最小差分で cache slice 直書きへ寄せます。
+
+`k` / `v` の二重管理を外します。まず `RunState` から削除し、`forward` は cache の現在位置 slice を直接取る形にします。
+
+`RunState` の該当行を確認しました。ここから `k` / `v` を削除し、`forward` も直接 slice 参照に差し替えます。
+
+`k` / `v` は外せました。コンパイルを確認して、次に `matmul` を受ける slice の形まで問題ないか見ます。
+
+`RunState` から `k` / `v` を削除しました。[state.rs](/home/hase/llama2rust/llama-rs/src/state.rs:19) では `q` だけを残し、`new()` 側の `k` / `v` 初期化も消しています。これで cache が唯一の保存先になります。
+
+[`forward`](/home/hase/llama2rust/llama-rs/src/transformer.rs:63) も、`state.k` / `state.v` へコピーするのをやめて、現在位置の cache slice を直接取る形に変えました。
+
+```rust
+let _k_cache = &mut state.key_cache[cache_offset..cache_end];
+let _v_cache = &mut state.value_cache[cache_offset..cache_end];
+```
+
+今はまだ未使用ですが、次に `ops::matmul` を作ればそのまま
+
+```rust
+ops::matmul(&mut state.q, &state.xb, wq, dim, dim);
+ops::matmul(k_cache, &state.xb, wk, dim, kv_dim);
+ops::matmul(v_cache, &state.xb, wv, dim, kv_dim);
+```
+
+へ進めます。`cargo check --lib` は通っています。
