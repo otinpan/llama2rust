@@ -1,0 +1,1 @@
+// merge the best consecutive pair each iteration, according the scores in vocab_scores
