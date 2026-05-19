@@ -1,0 +1,13 @@
+===================================================================
+--- lib.rs (before)	snapshot
++++ lib.rs (after)	external
+@@ -0,0 +1,9 @@
++pub mod transformer;
++pub mod config;
++pub mod state;
++pub mod weights;
++pub mod checkpoint;
++pub mod logger;
++pub mod tokenizer;
++pub mod sampler;
++pub mod generation;
