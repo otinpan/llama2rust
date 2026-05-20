@@ -41,7 +41,9 @@ pub fn generate(
         }
 
         let piece = tokenizer.decode(token, next);
-        print!("{}", piece);
+        if let Some(piece) = tokenizer.safe_piece(&piece) {
+            print!("{}", piece);
+        }
         token = next;
 
         if timer.is_none() {
@@ -51,7 +53,7 @@ pub fn generate(
 
     println!();
 
-    if pos > 1 {
+    if pos>1{
         if let Some(timer) = &timer {
             let elapsed_ms = timer.elapsed_ms();
             if elapsed_ms > 0 {

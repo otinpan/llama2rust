@@ -1,7 +1,8 @@
 use llama_rs::transformer::Transformer;
 use llama_rs::tokenizer::Tokenizer;
-use llama_rs::generation::generate::generate;
 use llama_rs::generation::chat::chat;
+use llama_rs::generation::generate::generate;
+use llama_rs::sampler::Sampler;
 // @trace-pilot 5f50038dae75a7ab6c556f586a9adb5d86c3b026
 use llama_rs::logger;
 
@@ -109,15 +110,42 @@ fn main() {
         std::process::exit(1);
     });
 
-    let transformer = Transformer::new(&options.checkpoint).expect("failed to open checkpoint");
+    let mut transformer = Transformer::new(&options.checkpoint).expect("failed to open checkpoint");
     options.steps = transformer.clamp_steps(options.steps);
 
-
-    let tokanizer=Tokenizer::new(
+    let mut tokenizer = Tokenizer::new(
         &options.tokenizer_path,
         transformer.config().vocab_size
     ).unwrap();
+    let mut sampler = Sampler::new(
+        transformer.config().vocab_size,
+        options.temperature,
+        options.topp,
+        options.rng_seed,
+    );
 
     println!("config: {:?}", transformer.config());
     println!("options: {:?}", options);
+
+    if options.mode == "generate" {
+        generate(
+            &mut transformer,
+            &mut tokenizer,
+            &mut sampler,
+            options.prompt.as_deref(),
+            options.steps,
+        ).unwrap();
+    } else if options.mode == "chat" {
+        chat(
+            &mut transformer,
+            &mut tokenizer,
+            &mut sampler,
+            options.prompt.as_deref(),
+            options.system_prompt.as_deref(),
+            options.steps,
+        ).unwrap();
+    } else {
+        eprintln!("unsupported mode: {}", options.mode);
+        std::process::exit(1);
+    }
 }

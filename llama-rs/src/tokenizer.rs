@@ -99,12 +99,42 @@ impl Tokenizer {
         Ok(tokens)
     }
 
-    pub fn decode(&self, token: u32, next: u32) -> String{
-        let _ = token;
-        self.vocab
-            .get(next as usize)
+    pub fn decode(&self, prev_token: u32, token: u32) -> String {
+        let mut piece = self
+            .vocab
+            .get(token as usize)
             .cloned()
-            .unwrap_or_default()
+            .unwrap_or_default();
+
+        if prev_token == 1 && piece.starts_with(' ') {
+            piece.remove(0);
+        }
+
+        if let Some(byte_val) = parse_byte_fallback(&piece) {
+            return char::from(byte_val).to_string();
+        }
+
+        piece
+    }
+
+    // @trace-pilot e27df3610106a9695676f753f61f8349a9381cab
+    // void safe_printf(
+    // piece might be a raw byte token, and we only want to print printable chars or whitespace
+    // because some of the other bytes can be various control codes, backspace, etc.
+    pub fn safe_piece<'a>(&self, piece: &'a str) -> Option<&'a str> {
+        let _ = self;
+        if piece.is_empty() {
+            return None;
+        }
+
+        if piece.len() == 1 {
+            let byte_val = piece.as_bytes()[0];
+            if !(byte_val.is_ascii_graphic() || byte_val.is_ascii_whitespace()) {
+                return None;
+            }
+        }
+
+        Some(piece)
     }
 
     // @trace-pilot 3f084a2526336d5d95d55cd7dd9e8ef85c016f0c
@@ -229,6 +259,14 @@ fn read_f32<R: Read>(reader: &mut R) -> io::Result<f32> {
     Ok(f32::from_le_bytes(bytes))
 }
 
+fn parse_byte_fallback(piece: &str) -> Option<u8> {
+    if piece.len() != 6 || !piece.starts_with("<0x") || !piece.ends_with('>') {
+        return None;
+    }
+
+    u8::from_str_radix(&piece[3..5], 16).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,5 +340,26 @@ mod tests {
         let tokens = tokenizer.encode(Some("ab"), true, true).unwrap();
 
         assert_eq!(tokens, vec![1, 3, 6, 2]);
+    }
+
+    #[test]
+    fn decode_strips_leading_space_after_bos() {
+        let tokenizer = make_tokenizer();
+
+        assert_eq!(tokenizer.decode(1, 3), "");
+    }
+
+    #[test]
+    fn safe_piece_rejects_non_printable_single_byte() {
+        let tokenizer = make_tokenizer();
+
+        assert_eq!(tokenizer.safe_piece("\u{0001}"), None);
+        assert_eq!(tokenizer.safe_piece("\n"), Some("\n"));
+    }
+
+    #[test]
+    fn parse_byte_fallback_reads_hex_token() {
+        assert_eq!(parse_byte_fallback("<0x0A>"), Some(0x0A));
+        assert_eq!(parse_byte_fallback("hello"), None);
     }
 }

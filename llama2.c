@@ -264,8 +264,8 @@ float* forward(Transformer* transformer, int token, int pos) {
 
         // RoPE relative positional encoding: complex-valued rotate q and k in each head
         for (int i = 0; i < dim; i+=2) {
-            int head_dim = i % head_size;
-            float freq = 1.0f / powf(10000.0f, head_dim / (float)head_size);
+            int head_dim = i % head_size; // head_size=64
+            float freq = 1.0f / powf(10000.0f, head_dim / (float)head_size); // 周波数
             float val = pos * freq;
             float fcr = cosf(val);
             float fci = sinf(val);
