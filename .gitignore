@@ -1,3 +1,6 @@
 .trace-worktree/
 .intent-tracer/
 stories15M.bin
+llama-codex/implementations/
+llama-codex/model.bin
+llama-codex/tokenizer.bin

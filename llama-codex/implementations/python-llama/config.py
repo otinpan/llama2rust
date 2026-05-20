@@ -1,14 +1,18 @@
+# @trace-pilot af41d65864620f80fe112afb06f9075ae0a50014
+
+# @trace-pilot 6b32a8dee11e0900158982e686d3a2bc7c30b41f
+# config.md
 from __future__ import annotations
 
 from dataclasses import dataclass
-import struct
 from pathlib import Path
+import struct
 
 
 HEADER_FORMAT = "<7i"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-# test
+
 @dataclass(frozen=True)
 class Config:
     dim: int
