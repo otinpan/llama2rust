@@ -1,0 +1,129 @@
+これは LLM が：
+「次のtokenをどう選ぶか」
+を決める部分です。
+つまり：
+logits → 確率↓実際のtoken選択
+をしています。
+
+sample_mult
+これは：
+確率分布そのままからランダムサンプリング
+です。
+
+例えば
+softmax 後：
+cat   : 0.5dog   : 0.3apple : 0.2
+だったとします。
+
+coin
+Cfloat coin
+は：
+0〜1 の乱数
+です。
+例えば：
+coin = 0.62
+
+cumulative distribution
+Ccdf += probabilities[i];
+で累積和を作ります。
+つまり：
+cat   : 0.5dog   : 0.8apple : 1.0
+です。
+
+判定
+Cif (coin < cdf)
+で、
+0.62 < 0.8
+なので "dog" が選ばれます。
+
+つまり sample_mult は
+確率に比例してtokenを引く
+関数です。
+
+sample_topp
+これは：
+Top-p sampling
+です。
+別名：
+nucleus sampling
+です。
+
+なぜ必要？
+普通の sampling だと：
+超低確率token
+も選ばれる可能性があります。
+すると：
+意味不明文章
+になりやすい。
+
+top-p の考え方
+まず：
+「十分ありそうなtokenだけ」
+残します。
+
+例
+確率：
+cat    0.40dog    0.30bird   0.20apple  0.05table  0.03asdf   0.02
+で：
+topp = 0.9
+とします。
+
+cumulative probability
+上から足す：
+cat    0.40dog    0.70bird   0.90 ← ここで到達
+なので：
+cat,dog,bird
+だけ残します。
+
+apple 以降を捨てる
+低確率token排除
+です。
+
+コードでいうと
+
+1. 候補抽出
+Cif (probabilities[i] >= cutoff)
+低確率token除外。
+
+2. sort
+Cqsort(...)
+確率順に並べる。
+
+3. cumulative_prob
+Ccumulative_prob += probindex[i].prob;
+累積確率。
+
+4. topp 到達で打ち切り
+Cif (cumulative_prob > topp)
+です。
+
+最後
+残った候補だけで：
+sample_mult 的 sampling
+します。
+
+何に貢献する？
+
+sample_mult
+多様性
+を生みます。
+毎回同じ文章にならない。
+
+top-p
+変なtokenを防ぐ
+です。
+つまり：
+創造性+破綻防止
+のバランス。
+
+temperatureとの関係
+通常：
+temperature↓top-p↓sampling
+です。
+
+直感的には
+sample_mult：
+サイコロ
+top-p：
+「まともそうな面だけ残したサイコロ」
+です。
