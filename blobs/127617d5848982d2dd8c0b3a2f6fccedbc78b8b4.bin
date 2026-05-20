@@ -1,0 +1,2 @@
+// sample index from probabilities (they must sum to 1!)
+    // coin is a random number in [0, 1), usually from random_f32()
