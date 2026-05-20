@@ -1,0 +1,1 @@
+// softmax the scores to get attention weights, from 0..pos inclusively
