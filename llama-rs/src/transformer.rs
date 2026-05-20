@@ -1,9 +1,10 @@
 use crate::config::Config;
 use crate::checkpoint::Checkpoint;
-use crate::weights::TransformerWeights;
 use crate::state::RunState;
+use crate::weights::TransformerWeights;
 use crate::ops;
 
+use rayon::prelude::*;
 use std::io;
 use std::path::Path;
 
@@ -57,9 +58,16 @@ impl Transformer{
         let seq_len = p.seq_len;
         let n_layers = p.n_layers;
 
+// @trace-pilot ce1e032e4c1f426c708f5b316f12bc451aeb997c
+// Self-Attention
+
+// @trace-pilot fbf2b58b13ae6a66996ea0ed348c7de6a44fc84c
+// Embedding Vector
         state.x = Self::embedding(&weights, dim, token);
 
         for l in 0..n_layers {
+            // @trace-pilot f2f6f0819adbc404aef31ab85d3099c042829dfc
+            // Q/K/V生成
             let att_weight = &weights.rms_att_weight[l * dim..(l + 1) * dim];
             // 正規化
             ops::rmsnorm(
@@ -84,16 +92,27 @@ impl Transformer{
             ops::matmul(k_cache,&state.xb,wk,dim,kv_dim);
             ops::matmul(v_cache,&state.xb,wv,dim,kv_dim);
 
+// @trace-pilot 93becf09202f2eab3a160e0864aa39c26ca7b65c
+// Positional Encoding 
             // @trace-pilot 993369b863e534622167f6526969feb115f3c057
             // RoPE relative positional encoding: complex-valued rotate q and k in each head
             Self::rope(&mut state.q, k_cache, p, pos);
 
+// @trace-pilot cb32729cef8f59f29731e24720c1b5ccdf8de675
+// Attention Score 計算
             // @trace-pilot 42e44b2b990c1e63daf572d919cc01eb139bd189
             // multihead attention. iterate over all heads
             // 各stepで0..posまで(各tokenごと)のattentionを計算し、x=attention*vで更新
-            for h in 0..p.n_heads{
-                Self::score(state,p,l,h,pos);
-            }
+            Self::score_heads(
+                &state.q,
+                &state.key_cache,
+                &state.value_cache,
+                &mut state.att,
+                &mut state.xb,
+                p,
+                l,
+                pos,
+            );
 
             // @trace-pilot d02ef69da4e6445a14d252da2eca1dd51c51b1a4
             // final matmul to get the output of the attention
@@ -104,7 +123,8 @@ impl Transformer{
             for i in 0..dim{
                 state.x[i] += state.xb2[i];
             }
-
+// @trace-pilot de5230f566396a244451229e6eaec7205e34ed0e
+// Feed Forward Network
             let ffn_weight = &weights.rms_ffn_weight[l * dim..(l + 1) * dim];
             crate::ops::rmsnorm(&mut state.xb, &state.x, ffn_weight);
 
@@ -178,60 +198,59 @@ impl Transformer{
         }
     }
 
-    // 各headのscoreを出す
-    // softmax(q*v/sqrt(head_size))
-    fn score(
-        state: &mut RunState,
+    // 各headのscoreを並列に出す
+    // softmax(q*k/sqrt(head_size)) を計算し、attention*v を xb に書く
+    fn score_heads(
+        q_all: &[f32],
+        key_cache: &[f32],
+        value_cache: &[f32],
+        att_all: &mut [f32],
+        xb_all: &mut [f32],
         config: &Config,
         layer: usize,
-        head: usize,
         pos: usize,
-    ){
-        let dim=config.dim;
-        let head_size=dim/config.n_heads;
-        let kv_dim=(config.dim*config.n_kv_heads)/config.n_heads;
-        let kv_mul=config.n_heads/config.n_kv_heads;
-        let seq_len=config.seq_len;
-        let loff=layer*seq_len*kv_dim;
+    ) {
+        let dim = config.dim;
+        let head_size = dim / config.n_heads;
+        let kv_dim = (config.dim * config.n_kv_heads) / config.n_heads;
+        let kv_mul = config.n_heads / config.n_kv_heads;
+        let seq_len = config.seq_len;
+        let loff = layer * seq_len * kv_dim;
 
-        let q_start=head*head_size;
-        let q_end=q_start+head_size;
-        let q=&state.q[q_start..q_end];
+        att_all
+            .par_chunks_mut(seq_len)
+            .zip(xb_all.par_chunks_mut(head_size))
+            .enumerate()
+            .for_each(|(head, (att, xb))| {
+                let q_start = head * head_size;
+                let q_end = q_start + head_size;
+                let q = &q_all[q_start..q_end];
 
-        let att_start=head*seq_len;
-        let att_end=att_start+seq_len;
-        let att=&mut state.att[att_start..att_end];
+                for t in 0..=pos {
+                    let k_start = loff + t * kv_dim + (head / kv_mul) * head_size;
+                    let k_end = k_start + head_size;
+                    let k = &key_cache[k_start..k_end];
 
-        for t in 0..=pos{
-            let k_start=loff+t*kv_dim+(head/kv_mul)*head_size;
-            let k_end=k_start+head_size;
-            let k=&state.key_cache[k_start..k_end];
-            let mut score=0.0f32;
-            for i in 0..head_size{
-                score+=q[i]*k[i];
-            }
-            // @trace-pilot 1825905c726694c32dd8a715c6e52b32c4605e8e
-            // softmax the scores to get attention weights, from 0..pos inclusively
-            att[t]=score/(head_size as f32).sqrt();
-        }
+                    let mut score = 0.0f32;
+                    for i in 0..head_size {
+                        score += q[i] * k[i];
+                    }
+                    att[t] = score / (head_size as f32).sqrt();
+                }
 
-        ops::softmax(&mut att[..=pos]);
+                ops::softmax(&mut att[..=pos]);
 
-        let xb_start=head*head_size;
-        let xb_end=xb_start+head_size;
-        let xb=&mut state.xb[xb_start..xb_end];
-        xb.fill(0.0);
+                xb.fill(0.0);
+                for t in 0..=pos {
+                    let v_start = loff + t * kv_dim + (head / kv_mul) * head_size;
+                    let v_end = v_start + head_size;
+                    let v = &value_cache[v_start..v_end];
+                    let a = att[t];
 
-        for t in 0..=pos{
-            let v_start=loff+t*kv_dim+(head/kv_mul)*head_size;
-            let v_end=v_start+head_size;
-            let v=&state.value_cache[v_start..v_end];
-            let a=att[t];
-
-            for i in 0..head_size{
-                xb[i]+=a*v[i];
-            }
-        }
-
+                    for i in 0..head_size {
+                        xb[i] += a * v[i];
+                    }
+                }
+            });
     }
 }

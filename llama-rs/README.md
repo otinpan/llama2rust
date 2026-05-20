@@ -1,4 +1,3 @@
-```markdown
 # Transformer 要件仕様書
 
 ## 1. 概要
@@ -23,6 +22,7 @@ Transformer モデル
 - 長距離依存関係の学習
 - Multi-Head Attention による多視点特徴抽出
 
+```
 Usage:   {program} <checkpoint> [options]
 Example: {program} model.bin -n 256 -i "Once upon a time"
 Options:
@@ -34,6 +34,7 @@ Options:
 -z <string> optional path to custom tokenize
 -m <string> mode: generate|chat, default generate
 -y <string> optional system prompt in chat mode
+```
 
 ---
 
@@ -67,6 +68,7 @@ Softmax
 * rms_att_weight,rms_ffn_weight,rms_final_weight: 正規化学習済みスケール
 * token_embedding_table: トークン埋め込み
 * wcls: logitsを出す分類器
+
 ---
 
 # 3. Encoder 要件
@@ -327,54 +329,9 @@ Decoder 出力を Vocabulary 空間へ写像する。
 
 ---
 
-# 10. 学習要件
+# 10. 並列化要件
 
-## 10.1 損失関数
-
-### 要件
-- Cross Entropy Loss を使用
-- 正解分布との差を最小化
-
----
-
-## 10.2 教師データ
-
-### 要件
-- 入力系列
-- 正解出力系列
-
-をペアで持つこと。
-
----
-
-## 10.3 Backpropagation
-
-### 要件
-- 誤差逆伝播による重み更新
-- Gradient Descent 系最適化を使用
-
----
-
-# 11. 推論要件
-
-## 11.1 Greedy Decoding
-
-### 要件
-- 最大確率単語を逐次選択
-
----
-
-## 11.2 Beam Search
-
-### 要件
-- 複数候補を保持
-- beam_size を指定可能
-
----
-
-# 12. 並列化要件
-
-## 12.1 並列実行
+## 10.1 並列実行
 
 ### 要件
 - Self-Attention は行列演算化する
@@ -382,7 +339,7 @@ Decoder 出力を Vocabulary 空間へ写像する。
 
 ---
 
-# 13. ハイパーパラメータ
+# 11. ハイパーパラメータ
 
 | 項目 | 標準値 |
 |---|---|
@@ -394,9 +351,9 @@ Decoder 出力を Vocabulary 空間へ写像する。
 
 ---
 
-# 14. 入出力仕様
+# 12. 入出力仕様
 
-## 14.1 入力
+## 12.1 入力
 
 ### 形式
 - Token Sequence
@@ -409,7 +366,7 @@ Decoder 出力を Vocabulary 空間へ写像する。
 
 ---
 
-## 14.2 出力
+## 12.2 出力
 
 ### 形式
 - 次単語確率分布
@@ -424,7 +381,7 @@ P("You") = 0.1
 
 ---
 
-# 15. 用語定義
+# 13. 用語定義
 
 | 用語 | 意味 |
 |---|---|
@@ -438,29 +395,3 @@ P("You") = 0.1
 
 ---
 
-# 16. 非機能要件
-
-## 16.1 性能
-
-### 要件
-- GPU/TPU 上で高速並列実行可能
-- 行列演算最適化可能
-
----
-
-## 16.2 拡張性
-
-### 要件
-- Encoder/Decoder 層数変更可能
-- Head 数変更可能
-- Vocabulary 拡張可能
-
----
-
-# 17. 参考文献
-
-- Attention Is All You Need
-- The Illustrated Transformer
-- Tensor2Tensor
-- Transformer: A Novel Neural Network Architecture for Language Understanding
-```
