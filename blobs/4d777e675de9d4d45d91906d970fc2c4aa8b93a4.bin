@@ -1,0 +1,132 @@
+# Record 1: file:///home/hase/llama2rust/llama-rs/src/sampler.rs
+```diff
+===================================================================
+--- sampler.rs (before)	snapshot
++++ sampler.rs (after)	external
+@@ -37,23 +37,34 @@
+         }
+     }
+     // @trace-pilot 42687873feda2ba1bbaebb14d293c81961cbce0a
+     // int sample
+-    pub fn sample(&self, logits: Vec<f32>) -> u32 {
++    pub fn sample(&mut self, logits: Vec<f32>) -> u32 {
+         if logits.is_empty() {
+             return 0;
+         }
+ 
+-        if self.temperature <= 0.0 {
++        if self.temperature == 0.0 {
+             return argmax(&logits) as u32;
+         }
+ 
+         let mut probs = logits;
+         for logit in &mut probs {
+             *logit /= self.temperature;
+         }
+         softmax(&mut probs);
+-        argmax(&probs) as u32
++
++        let coin = random_f32(&mut self.rng_state);
++        if self.topp <= 0.0 || self.topp >= 1.0 {
++            sample_mult(&probs, coin) as u32
++        } else {
++            sample_topp(
++                &probs,
++                self.topp,
++                &mut self.prob_index,
++                coin,
++            ) as u32
++        }
+     }
+ }
+ 
+ fn argmax(values: &[f32]) -> usize {
+@@ -84,4 +95,68 @@
+             *value /= sum;
+         }
+     }
+ }
++
++fn sample_mult(probabilities: &[f32], coin: f32) -> usize {
++    let mut cdf = 0.0f32;
++    for (i, &prob) in probabilities.iter().enumerate() {
++        cdf += prob;
++        if coin < cdf {
++            return i;
++        }
++    }
++    probabilities.len().saturating_sub(1)
++}
++
++fn sample_topp(
++    probabilities: &[f32],
++    topp: f32,
++    prob_index: &mut [ProbIndex],
++    coin: f32,
++) -> usize {
++    let n = probabilities.len();
++    let cutoff = (1.0f32 - topp) / (n as f32 - 1.0);
++
++    let mut n0 = 0usize;
++    for (i, &prob) in probabilities.iter().enumerate() {
++        if prob >= cutoff {
++            prob_index[n0].index = i;
++            prob_index[n0].prob = prob;
++            n0 += 1;
++        }
++    }
++
++    prob_index[..n0].sort_by(|a, b| b.prob.total_cmp(&a.prob));
++
++    let mut cumulative_prob = 0.0f32;
++    let mut last_idx = n0.saturating_sub(1);
++    for (i, item) in prob_index[..n0].iter().enumerate() {
++        cumulative_prob += item.prob;
++        if cumulative_prob > topp {
++            last_idx = i;
++            break;
++        }
++    }
++
++    let r = coin * cumulative_prob;
++    let mut cdf = 0.0f32;
++    for item in &prob_index[..=last_idx] {
++        cdf += item.prob;
++        if r < cdf {
++            return item.index;
++        }
++    }
++
++    prob_index[last_idx].index
++}
++
++fn random_u32(state: &mut u64) -> u32 {
++    *state ^= *state >> 12;
++    *state ^= *state << 25;
++    *state ^= *state >> 27;
++    ((*state).wrapping_mul(0x2545_F491_4F6C_DD1D_u64) >> 32) as u32
++}
++
++fn random_f32(state: &mut u64) -> f32 {
++    (random_u32(state) >> 8) as f32 / 16_777_216.0f32
++}
+
+```
+
+C 側の sampler と同じ流れに合わせます。まず `llama2.c` の `sample` 周辺を確認して、Rust の `Sampler` を同等挙動に寄せます。
+
+C 側は `temperature == 0` で `argmax`、それ以外は `softmax` のあとに `sample_mult` か `sample_topp`、さらに `rng_state` を更新します。Rust 側もその流れに揃えます。
+
+sampling 本体を C に合わせました。`top-p` と RNG を使うようになったので、最後にコンパイルだけ確認します。
+
+`Sampler::sample()` を C と同じ流れに直しました。[sampler.rs](/home/hase/llama2rust/llama-rs/src/sampler.rs)
+
+今はこう動きます。
+
+- `temperature == 0.0` なら `argmax`
+- それ以外は logits を temperature で割って `softmax`
+- 乱数 `coin` を `rng_state` から生成
+- `topp <= 0` または `topp >= 1` なら多項分布サンプリング
+- それ以外は `top-p` サンプリング
+
+あわせて `sample_mult`、`sample_topp`、`random_u32`、`random_f32` を追加しました。`cargo check` は通っています。
