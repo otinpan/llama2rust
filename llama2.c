@@ -665,7 +665,7 @@ int sample_topp(float* probabilities, int n, float topp, ProbIndex* probindex, f
     return probindex[last_idx].index; // in case of rounding errors
 }
 
-void build_sampjer(Sampler* sampler, int vocab_size, float temperature, float topp, unsigned long long rng_seed) {
+void build_sampler(Sampler* sampler, int vocab_size, float temperature, float topp, unsigned long long rng_seed) {
     sampler->vocab_size = vocab_size;
     sampler->temperature = temperature;
     sampler->topp = topp;

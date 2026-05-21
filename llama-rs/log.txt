@@ -513,3 +513,13 @@ merged vocab: ab
 [1779275529310]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  fish
 [1779275567520]  INFO llama_rs::generation::generate src/generation/generate.rs:61 achieved tok/s: 6.752105068050628
 [1779275567520]  INFO llama_rs::timer src/timer.rs:21 timer: generate took 37766 ms
+[1779386269682]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  h
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab: el
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  h
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  hel
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab: ell
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab: lo
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  hel
+[1779386269683]  INFO llama_rs::tokenizer src/tokenizer.rs:216 merged vocab:  hello
+[1779386293460]  INFO llama_rs::generation::generate src/generation/generate.rs:61 achieved tok/s: 6.130544536602957
+[1779386293460]  INFO llama_rs::timer src/timer.rs:21 timer: generate took 24957 ms

@@ -7,3 +7,7 @@ llama-codex/tokenizer.bin
 llama-codex/implementations/llama-python/__pycache__/
 llama-codex/implementations/llama-c/.agents/
 llama-codex/implementations/llama-c/build/
+llama-codex/implementations-from-code/llama-python/llama_runner/__pycache__/
+llama-codex/.agents/
+run
+log.txt
