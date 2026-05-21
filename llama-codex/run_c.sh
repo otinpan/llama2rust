@@ -10,7 +10,7 @@ if [[ -z "$PROMPT" ]]; then
   exit 1
 fi
 
-"$ROOT_DIR/.venv/bin/python" "$ROOT_DIR/implementations/llama-python/run.py" \
+"$ROOT_DIR/implementations/llama-c/build/llama-c" \
   "$ROOT_DIR/model.bin" \
   "$ROOT_DIR/tokenizer.bin" \
   -i "$PROMPT" \

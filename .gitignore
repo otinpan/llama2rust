@@ -4,3 +4,6 @@ stories15M.bin
 llama-codex/.venv
 llama-codex/model.bin
 llama-codex/tokenizer.bin
+llama-codex/implementations/llama-python/__pycache__/
+llama-codex/implementations/llama-c/.agents/
+llama-codex/implementations/llama-c/build/
